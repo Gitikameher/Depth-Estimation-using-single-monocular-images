@@ -71,7 +71,7 @@ class NYUDataset(torch.utils.data.Dataset):
          """
 
         # Get create a ChestXrayDataset object
-        dataset = self.ds_v_2
+        dataset = NYUDataset('data/',self.tfms)
 
         # Dimensions and indices of training set
         dataset_size = len(dataset)
