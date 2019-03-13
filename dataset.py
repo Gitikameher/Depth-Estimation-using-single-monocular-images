@@ -32,12 +32,15 @@ class NYUDataset(torch.utils.data.Dataset):
         img = img.astype(np.uint8)
 
         depth = np.transpose(ds["depths"][i], axes=[1,0])
+        
         depth = (depth/depth.max())*255
         depth = depth.astype(np.uint8)
-
+        
         if self.tfms:
             tfmd_sample = self.tfms({"image":img, "depth":depth})
             img, depth = tfmd_sample["image"], tfmd_sample["depth"]
+        
+        depth = (depth - torch.min(depth))/(torch.max(depth) - torch.min(depth)) 
         return (img, depth)
     
     def __len__(self):

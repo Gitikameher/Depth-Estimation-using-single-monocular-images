@@ -1,11 +1,14 @@
+import os
+
 import torch
 import torch.nn as nn
 import torchvision
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 import numpy as np
 from PIL import Image
 import torch.nn.functional as F
 #from logger import Logger
+
+device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 def get_unnormalized_ds_item(unnormalize, item):
     un_img = unnormalize(item[0][None])
@@ -53,18 +56,35 @@ def depth_loss(preds, actual_depth):
     #actual_depth.shape -> [16, 120, 160]
     n_pixels = actual_depth.shape[1]*actual_depth.shape[2]
     
-    preds = (preds*0.225) + 0.45
-    preds = preds*255
+#     preds = (preds*0.225) + 0.45
+#     preds = preds*255
     preds[preds<=0] = 0.00001
     actual_depth[actual_depth==0] = 0.00001
     actual_depth.unsqueeze_(dim=1)
     d = torch.log(preds) - torch.log(actual_depth)
 
-    grad_loss_term = im_gradient_loss(d, n_pixels)
+#     grad_loss_term = im_gradient_loss(d, n_pixels)
     term_1 = torch.pow(d.view(-1, n_pixels),2).mean(dim=1).sum() #pixel wise mean, then batch sum
     term_2 = (torch.pow(d.view(-1, n_pixels).sum(dim=1),2)/(2*(n_pixels**2))).sum()
     
-    return term_1 - term_2 + grad_loss_term
+    return term_1 - term_2
+
+class ScaleInvariantLoss(nn.Module):
+    """
+    Scale invariant error defined in Eigen's paper!
+    """
+
+    def __init__(self, lamada=0.5):
+        super(ScaleInvariantLoss, self).__init__()
+        self.lamada = lamada
+        return
+
+    def forward(self, y_pred, y_true):
+        first_log = torch.log(torch.clamp(y_pred, 0.00001))
+        second_log = torch.log(torch.clamp(y_true, 0.00001))
+        d = first_log - second_log
+        loss = torch.mean(d * d) - self.lamada * torch.mean(d) * torch.mean(d)
+        return loss
 
 def print_training_loss_summary(loss, total_steps, current_epoch, n_epochs, n_batches, print_every=10):
     #prints loss at the start of the epoch, then every 10(print_every) steps taken by the optimizer
@@ -131,3 +151,23 @@ def berHuLoss(pred, target):
     loss = torch.cat((diff, diff2)).mean()
 
     return loss
+
+class EpochTracker():
+    def __init__(self, in_file):
+        self.epoch = 0
+        self.in_file = in_file
+        self.file_exists = os.path.isfile(in_file)
+        if self.file_exists:
+            with open(in_file, 'r') as f:
+                e = f.read()
+                self.epoch = int(e)
+
+    def write(self, epoch):
+        self.epoch = epoch
+        data = "{}".format(self.epoch)
+        with open(self.in_file, 'w') as f:
+            f.write(data)
+
+def make_dir(file_path):
+    if not os.path.exists(file_path):
+        os.makedirs(file_path)

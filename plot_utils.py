@@ -2,6 +2,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 import math
+from matplotlib import pyplot as plt
+from skimage.transform import resize
+
+cmap = plt.cm.jet
 
 def plot_image(tup):
     img_tensor, depth_tensor = tup
@@ -27,9 +31,9 @@ def plot_image_tensor_in_subplot(ax, img_tensor):
 
 def plot_depth_tensor_in_subplot(ax, depth_tensor):
     im = depth_tensor.cpu().numpy()
-    #im = im*255
-    #im = im.astype(np.uint8)
-    #pil_im = Image.fromarray(im, 'L')
+    im = im*255
+    im = im.astype(np.uint8)
+#     #pil_im = Image.fromarray(im, 'L')
     ax.imshow(im,'gray')
     
 def plot_model_predictions_on_sample_batch(images, depths, preds, plot_from=0, figsize=(12,12)):
@@ -45,3 +49,20 @@ def plot_model_predictions_on_sample_batch(images, depths, preds, plot_from=0, f
         hide_subplot_axes(axes[i,2])
     
     plt.tight_layout()
+
+def create_depth_color(depth):
+    d_min = np.min(depth)
+    d_max = np.max(depth)
+    depth_relative = (depth - d_min) / (d_max - d_min)
+    depth = (255 * cmap(depth_relative)[:, :, :3])
+    return depth
+
+def save_image(pred_depth, x, y, batch, epoch, mode="train"):
+    depth = create_depth_color(np.transpose(pred_depth.cpu().numpy(), [1,2,0])[:, :, 0])
+    target = create_depth_color(np.transpose(y.cpu().numpy(), [1,2,0])[:, :, 0])
+    orig = 255 * x.cpu().numpy()
+    orig = resize(np.transpose(orig, (1, 2, 0)), (120, 160))
+    img = np.concatenate((orig, target, depth), axis =1)
+
+    img = Image.fromarray(img.astype('uint8'))
+    img.save('saved_images/%s_image_%d_%d.jpg'%(mode, epoch, batch))
