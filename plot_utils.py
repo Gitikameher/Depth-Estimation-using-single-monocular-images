@@ -1,3 +1,4 @@
+import os
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
@@ -57,7 +58,15 @@ def create_depth_color(depth):
     depth = (255 * cmap(depth_relative)[:, :, :3])
     return depth
 
-def save_image(pred_depth, x, y, batch, epoch, mode="train"):
+def plot_img(img, depth):
+    depth = create_depth_color(np.transpose(depth.numpy(), [1,2,0])[:, :, 0])
+    orig = img.cpu().numpy()
+    w, h, c = depth.shape
+    orig = resize(np.transpose(orig, (1, 2, 0)), (w, h))
+    img = np.concatenate((orig, depth), axis =1)
+    plt.imshow(img)
+    
+def save_image(pred_depth, x, y, batch, epoch, directory, mode="train"):
     depth = create_depth_color(np.transpose(pred_depth.cpu().numpy(), [1,2,0])[:, :, 0])
     target = create_depth_color(np.transpose(y.cpu().numpy(), [1,2,0])[:, :, 0])
     orig = 255 * x.cpu().numpy()
@@ -65,4 +74,4 @@ def save_image(pred_depth, x, y, batch, epoch, mode="train"):
     img = np.concatenate((orig, target, depth), axis =1)
 
     img = Image.fromarray(img.astype('uint8'))
-    img.save('saved_images/%s_image_%d_%d.jpg'%(mode, epoch, batch))
+    img.save(os.path.join(directory, 'saved_images/%s_image_%d_%d.jpg'%(mode, epoch, batch)))
