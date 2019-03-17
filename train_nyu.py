@@ -19,6 +19,8 @@ from nn_model import Net
 
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
+n_epochs = 20
+lr = 2e-5
 bs = 8
 sz = (320,240)
 seed = np.random.seed(1)
@@ -42,7 +44,8 @@ model = Net()
 model.to(device)
 output_dir = "nyu"
 make_dir(output_dir)
-make_dir("saved_images")
+images_dir = os.path.join(output_dir,"saved_images")
+make_dir(images_dir)
 epoch_tracker = EpochTracker(os.path.join(output_dir, "nyu_epoch.txt"))
 
 if epoch_tracker.epoch > 0:
@@ -53,7 +56,7 @@ else:
     start_epoch = 0
     losses_logger = open(os.path.join(output_dir, 'losses_log.txt'), 'w')
     
-#depth_loss = ScaleInvariantLoss()
+depth_loss = ScaleInvariantLoss(lamada=1.0)
 
 def validate(model):
     final_loss_val=[]
@@ -66,7 +69,7 @@ def validate(model):
     with torch.no_grad():
         for batch_val, labels in val_loader:   
             batch = batch_val.to(device)
-            labels = labels.to(device)#.unsqueeze(1)
+            labels = labels.to(device).unsqueeze(1)
 
             preds = model(batch)
             preds = (preds * 0.225) + 0.45
@@ -84,8 +87,6 @@ def validate(model):
             np.mean(final_l1_loss_val), np.mean(final_berhu_loss_val))
 
 model.train()
-n_epochs = 100
-lr = 0.000005
 optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr = lr)
 
 total_steps = 0
@@ -102,7 +103,7 @@ for e in range(start_epoch, n_epochs):
         optimizer.zero_grad()
         
         batch = batch.to(device)
-        labels = labels.to(device)#.unsqueeze(1)
+        labels = labels.to(device).unsqueeze(1)
         
         preds = model(batch)
         preds = (preds * 0.225) + 0.45
@@ -133,7 +134,7 @@ for e in range(start_epoch, n_epochs):
             img_new = unnormalize(batch[0].cpu()).detach().squeeze()
             depth=labels[0].detach()
             
-            save_image(pred, img_new, depth, i, e)
+            save_image(pred, img_new, depth, i, e, output_dir)
         
     del batch
     del labels
